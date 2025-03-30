@@ -1,94 +1,547 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <title>OpenAI Banner</title>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Changed title -->
+    <title>AP Research Image generator</title>
     <style>
-      body { margin: 0; overflow: hidden; }
-      canvas { display: block; }
+        @font-face {
+            font-family: 'SF Pro Display';
+            src: local('SF Pro Display'), local('SFProDisplay');
+            font-weight: normal;
+            font-style: normal;
+        }
+
+        /* Simplified color palette */
+        :root {
+            --black: #000000;
+            --white: #ffffff;
+            /* Added subtle grays for minimal button states */
+            --button-bg: #222222;
+            --button-hover: #333333;
+            --button-disabled: #111111;
+            --input-placeholder: #555555; /* Gray for placeholder text */
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            /* Solid black background */
+            background-color: var(--black);
+            /* All text defaults to white */
+            color: var(--white);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            /* Added some padding for breathing room */
+            padding: 2rem;
+        }
+
+        header {
+            margin-bottom: 2rem;
+            width: 100%;
+            max-width: 800px; /* Adjusted max-width for focus */
+            display: flex;
+            justify-content: center; /* Center the title */
+            align-items: center;
+            text-align: center; /* Ensure title text is centered */
+        }
+
+        h1 {
+            font-size: 2rem; /* Slightly reduced size */
+            font-weight: 600;
+            letter-spacing: -0.01em;
+            text-transform: none;
+            /* Ensure title is white */
+            color: var(--white);
+        }
+
+        /* Removed .subtitle style */
+
+        .container {
+            width: 100%;
+            max-width: 800px; /* Adjusted max-width */
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem; /* Adjusted gap */
+            flex-grow: 1; /* Allow container to grow */
+            justify-content: flex-end; /* Align content towards the bottom */
+        }
+
+        .chat-area {
+            flex-grow: 1;
+            /* Removed background color - inherits body */
+            /* Removed border-radius */
+            padding: 1rem 0; /* Vertical padding only */
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem; /* Adjusted gap */
+            width: 100%; /* Take full width */
+        }
+
+        .message {
+            display: flex;
+            flex-direction: column;
+            max-width: 90%; /* Slightly increased max-width */
+            padding: 0.5rem 0; /* Reduced padding, vertical only */
+            /* Removed border-radius */
+            /* Removed background color - inherits body */
+             color: var(--white); /* Ensure text is white */
+        }
+
+        .user-message {
+            align-self: flex-end;
+            text-align: right; /* Align text right */
+        }
+
+        .bot-message {
+            align-self: flex-start;
+        }
+
+        .image-container {
+            width: 100%;
+            margin-top: 0.5rem; /* Reduced margin */
+            position: relative;
+            /* Removed border-radius */
+            overflow: hidden;
+            aspect-ratio: 4/3;
+            max-width: 400px; /* Limit image size for aesthetics */
+        }
+        /* Align image container based on message type */
+        .user-message .image-container { margin-left: auto; }
+        .bot-message .image-container { margin-right: auto; }
+
+
+        .result-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            /* Removed border-radius */
+            opacity: 0;
+            transition: opacity 0.3s;
+            display: block; /* Ensure image takes block space */
+        }
+
+        .noise-overlay {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            opacity: 0;
+            /* Removed border-radius */
+        }
+
+        .generation-info {
+            margin-top: 0.5rem;
+            font-size: 0.8rem;
+            /* Set text color explicitly to white */
+            color: var(--white);
+            opacity: 0.7; /* Slightly dimmer info text */
+            display: flex;
+            justify-content: space-between;
+             max-width: 400px; /* Match image width */
+        }
+        /* Align info text based on message type */
+        .user-message .generation-info { margin-left: auto; }
+        .bot-message .generation-info { margin-right: auto; }
+
+        .input-area {
+            display: flex;
+            gap: 1rem;
+            width: 100%;
+            margin-top: 1rem;
+            padding-bottom: 1rem; /* Add padding at the very bottom */
+        }
+
+        .prompt-input {
+            flex-grow: 1;
+            padding: 0.75rem 0.5rem; /* Adjusted padding */
+            /* Removed background color - inherits body */
+            background-color: transparent;
+             /* Removed border */
+            border: none;
+            /* Add a subtle bottom border for usability */
+            border-bottom: 1px solid var(--input-placeholder);
+            color: var(--white);
+            font-family: inherit;
+            font-size: 1rem;
+            resize: none;
+            /* Removed border-radius */
+            line-height: 1.4; /* Improve readability */
+        }
+        .prompt-input::placeholder {
+            color: var(--input-placeholder);
+            opacity: 1; /* Ensure placeholder is visible */
+        }
+        .prompt-input:focus {
+           outline: none; /* Remove focus outline */
+           border-bottom-color: var(--white); /* Highlight bottom border on focus */
+        }
+
+
+        .send-btn {
+             /* Minimal gray background */
+            background-color: var(--button-bg);
+            color: var(--white);
+            border: none;
+            padding: 0.75rem 1.5rem; /* Adjusted padding */
+            font-family: inherit;
+            font-size: 1rem;
+            letter-spacing: 0.02em; /* Reduced spacing */
+            cursor: pointer;
+            transition: background-color 0.2s;
+             /* Removed border-radius - make it square/rectangular */
+            border-radius: 4px; /* Added minimal radius for Apple feel */
+            white-space: nowrap; /* Prevent button text wrapping */
+        }
+
+        .send-btn:hover {
+             /* Slightly lighter gray on hover */
+            background-color: var(--button-hover);
+        }
+
+        .send-btn:disabled {
+             /* Darker gray and less opaque when disabled */
+            background-color: var(--button-disabled);
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+
+        .progress-container {
+            width: 100%;
+            max-width: 400px; /* Match image width */
+            height: 2px; /* Thinner progress bar */
+            /* Use a very dark gray for the track */
+            background-color: var(--button-disabled);
+            margin-top: 0.5rem;
+            position: relative;
+            overflow: hidden;
+            /* Removed border-radius */
+            border-radius: 1px; /* Minimal radius */
+        }
+         /* Align progress based on message type */
+        .user-message .progress-container { margin-left: auto; }
+        .bot-message .progress-container { margin-right: auto; }
+
+
+        .progress {
+            position: absolute;
+            height: 100%;
+            width: 0;
+             /* White progress indicator */
+            background-color: var(--white);
+            transition: width 0.1s linear;
+             /* Removed border-radius */
+            border-radius: 1px; /* Minimal radius */
+        }
+
+        /* Removed .leica-badge style */
+
     </style>
-  </head>
-  <body>
-    <script type="module">
-      import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
-      import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js';
-      import { FontLoader } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/FontLoader.js';
-      import { TextGeometry } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/geometries/TextGeometry.js';
+</head>
+<body>
+    <!-- Removed leica-badge div -->
 
-      const scene = new THREE.Scene();
-      const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-      const renderer = new THREE.WebGLRenderer({ antialias: true });
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      document.body.appendChild(renderer.domElement);
+    <header>
+        <div>
+            <!-- Updated h1 text -->
+            <h1>AP Research Image generator</h1>
+            <!-- Removed subtitle div -->
+        </div>
+    </header>
 
-      // Lighting
-      const light = new THREE.AmbientLight(0xffffff, 1);
-      scene.add(light);
+    <div class="container">
+        <div class="chat-area" id="chat-area">
+            <!-- Removed initial bot message -->
+        </div>
 
-      const dirLight = new THREE.DirectionalLight(0xffffff, 1);
-      dirLight.position.set(0, 5, 10);
-      scene.add(dirLight);
+        <div class="input-area">
+            <textarea id="prompt-input" class="prompt-input" placeholder="Describe image..." rows="1"></textarea> <!-- Shortened placeholder, added rows=1 -->
+            <button id="send-btn" class="send-btn">Send</button>
+        </div>
+    </div>
 
-      // Camera position
-      camera.position.z = 20;
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const sendBtn = document.getElementById('send-btn');
+            const promptInput = document.getElementById('prompt-input');
+            const chatArea = document.getElementById('chat-area');
 
-      // Controls
-      const controls = new OrbitControls(camera, renderer.domElement);
+            let isGenerating = false;
+            let imageCount = 1; // Keep track of how many images have been generated
 
-      // Banner background
-      const bannerGeometry = new THREE.PlaneGeometry(20, 10);
-      const bannerMaterial = new THREE.MeshStandardMaterial({ color: 0x1a1a1a });
-      const banner = new THREE.Mesh(bannerGeometry, bannerMaterial);
-      scene.add(banner);
+            // Auto-resize textarea
+            function autoResizeTextarea() {
+                promptInput.style.height = 'auto'; // Reset height
+                promptInput.style.height = promptInput.scrollHeight + 'px'; // Set to content height
+            }
+            promptInput.addEventListener('input', autoResizeTextarea);
+            autoResizeTextarea(); // Initial size check
 
-      // OpenAI Logo texture (placeholder)
-      const loader = new THREE.TextureLoader();
-      loader.load('https://upload.wikimedia.org/wikipedia/commons/4/4d/OpenAI_Logo.svg', texture => {
-        const logoGeometry = new THREE.PlaneGeometry(4, 4);
-        const logoMaterial = new THREE.MeshBasicMaterial({ map: texture, transparent: true });
-        const logo = new THREE.Mesh(logoGeometry, logoMaterial);
-        logo.position.set(-5, 0, 0.1); // Slightly in front of the banner
-        scene.add(logo);
-      });
 
-      // Load font and add text
-      const fontLoader = new FontLoader();
-      fontLoader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', font => {
-        const textGeometry = new TextGeometry("I am 4-o", {
-          font: font,
-          size: 1,
-          height: 0.2,
-          curveSegments: 12,
-          bevelEnabled: true,
-          bevelThickness: 0.02,
-          bevelSize: 0.02,
-          bevelOffset: 0,
-          bevelSegments: 5
+            // Handle sending a new message
+            function sendMessage() {
+                if (isGenerating || !promptInput.value.trim()) return;
+
+                const prompt = promptInput.value.trim();
+
+                // Add user message to chat
+                const userMessage = document.createElement('div');
+                userMessage.className = 'user-message message';
+                userMessage.textContent = prompt;
+                chatArea.appendChild(userMessage);
+
+                // Clear input and resize
+                promptInput.value = '';
+                autoResizeTextarea();
+
+
+                // Add bot response with image placeholder
+                const botMessage = document.createElement('div');
+                botMessage.className = 'bot-message message';
+                // Simplified initial text
+                botMessage.innerHTML = `
+                    <div>Generating...</div>
+                    <div class="image-container">
+                        <img class="result-image" alt="Generated image">
+                        <canvas class="noise-overlay"></canvas>
+                    </div>
+                    <div class="generation-info">
+                        <span class="timer">Time: 0.00s</span>
+                        <span class="step-counter">Step: 0/25</span>
+                    </div>
+                    <div class="progress-container">
+                        <div class="progress"></div>
+                    </div>
+                `;
+                chatArea.appendChild(botMessage);
+
+                // Scroll to bottom smoothly
+                chatArea.scrollTo({ top: chatArea.scrollHeight, behavior: 'smooth' });
+
+
+                // Start generation process
+                startGeneration(botMessage, prompt);
+            }
+
+            // Set up canvas for the current message
+            function setupCanvas(messageElement) {
+                const noiseCanvas = messageElement.querySelector('.noise-overlay');
+                const container = messageElement.querySelector('.image-container');
+
+                // Debounce resize or ensure it runs after layout
+                setTimeout(() => {
+                    if (container.offsetWidth > 0 && container.offsetHeight > 0) {
+                        noiseCanvas.width = container.offsetWidth;
+                        noiseCanvas.height = container.offsetHeight;
+                    }
+                }, 0);
+
+
+                return noiseCanvas.getContext('2d');
+            }
+
+            // Generate random color noise (kept for effect)
+            function generateNoise(ctx, opacity) {
+                if (!ctx || ctx.canvas.width === 0 || ctx.canvas.height === 0) return; // Guard against 0 size canvas
+
+                ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+
+                const imageData = ctx.createImageData(ctx.canvas.width, ctx.canvas.height);
+                const data = imageData.data;
+
+                for (let i = 0; i < data.length; i += 4) {
+                    const noiseVal = Math.floor(Math.random() * 50) + 205; // Generate light gray noise
+                    data[i] = noiseVal;     // red
+                    data[i + 1] = noiseVal; // green
+                    data[i + 2] = noiseVal; // blue
+                    data[i + 3] = 255 * opacity; // alpha
+                }
+
+                ctx.putImageData(imageData, 0, 0);
+                ctx.canvas.style.opacity = '1';
+            }
+
+            // The main generation process
+            function startGeneration(messageElement, prompt) {
+                isGenerating = true;
+                sendBtn.disabled = true;
+
+                // Get elements within this message
+                const resultImage = messageElement.querySelector('.result-image');
+                let ctx; // Declare ctx here
+                const timerElement = messageElement.querySelector('.timer');
+                const stepCounter = messageElement.querySelector('.step-counter');
+                const progressBar = messageElement.querySelector('.progress');
+                const generatingText = messageElement.querySelector('div'); // Get the first div for text update
+
+                // Initialize canvas context
+                ctx = setupCanvas(messageElement);
+
+
+                let currentStep = 0;
+                const startTime = Date.now();
+                const totalSteps = 25;
+                // Different timing based on which image we're generating
+                const totalTime = imageCount === 1 ? 4.5 : 3.2; // seconds
+                const intervalTime = (totalTime * 1000) / totalSteps;
+
+                // Determine which image file to use based on count
+                const imageName = imageCount === 1 ? 'image.jpeg' : `image${imageCount}.jpeg`;
+
+                // Show the base image and set its opacity to 0
+                resultImage.src = imageName;
+                resultImage.style.opacity = '0';
+
+                // Handle image load error
+                resultImage.onerror = function() { // Use onerror property
+                    console.warn(`Warning: ${imageName} not found. Using placeholder.`);
+
+                    // Create a temporary canvas to draw a placeholder image
+                    const tempCanvas = document.createElement('canvas');
+                     // Use image container size if available, else default
+                    const container = messageElement.querySelector('.image-container');
+                    tempCanvas.width = container.offsetWidth || 400;
+                    tempCanvas.height = container.offsetHeight || 300;
+                    const tempCtx = tempCanvas.getContext('2d');
+
+                    // Fill with black background
+                    tempCtx.fillStyle = '#000'; // Black background
+                    tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+
+                    // Add some white text
+                    tempCtx.fillStyle = '#555'; // Gray text
+                    tempCtx.font = `bold ${Math.min(24, tempCanvas.width / 15)}px "SF Pro Display", sans-serif`;
+                    tempCtx.textAlign = 'center';
+                    tempCtx.textBaseline = 'middle'; // Center text vertically
+                    tempCtx.fillText('Placeholder', tempCanvas.width / 2, tempCanvas.height / 2 - 15);
+                     tempCtx.font = `${Math.min(16, tempCanvas.width / 25)}px "SF Pro Display", sans-serif`;
+                    tempCtx.fillText(`(${imageName} missing)`, tempCanvas.width / 2, tempCanvas.height / 2 + 15);
+
+
+                    // Use this canvas as our image source
+                    resultImage.src = tempCanvas.toDataURL('image/jpeg');
+                     // Make sure placeholder shows immediately if original fails
+                    resultImage.style.opacity = '1';
+                    if(ctx) ctx.canvas.style.opacity = '0'; // Hide noise overlay if placeholder shown
+                     // Clear interval if it was started
+                    if (animationInterval) clearInterval(animationInterval);
+                    finishGeneration(true); // Pass flag indicating error
+
+                };
+
+                 // Handle image load success
+                 let animationInterval = null; // Define interval variable
+                 resultImage.onload = function() {
+                     // Only start animation if not already showing placeholder due to previous error
+                     if (resultImage.src.startsWith('data:image/jpeg')) return;
+
+                     // Ensure canvas is ready before starting animation
+                      if (!ctx || ctx.canvas.width === 0) {
+                         ctx = setupCanvas(messageElement);
+                         // Small delay to ensure canvas dimensions are set
+                         setTimeout(startAnimation, 50);
+                      } else {
+                         startAnimation();
+                      }
+                 }
+
+
+                function startAnimation() {
+                    animationInterval = setInterval(() => {
+                        const elapsed = updateTimer();
+                        currentStep++;
+
+                        // Update step counter
+                        stepCounter.textContent = `Step: ${currentStep}/${totalSteps}`;
+
+                        // Update progress bar
+                        const progress = (currentStep / totalSteps) * 100;
+                        progressBar.style.width = `${progress}%`;
+
+                        // Generate noise with decreasing opacity
+                        const noiseOpacity = 1 - (currentStep / totalSteps);
+                        generateNoise(ctx, noiseOpacity);
+
+                        // Gradually reveal the image
+                        resultImage.style.opacity = currentStep / totalSteps;
+
+                        // Check if we've reached the end
+                        if (currentStep >= totalSteps || elapsed >= totalTime) {
+                            clearInterval(animationInterval);
+
+                            // Make sure we show the final state
+                            resultImage.style.opacity = '1';
+                             if(ctx) ctx.canvas.style.opacity = '0'; // Ensure noise overlay is hidden
+
+
+                            // Final timer update to match exact specified time
+                            const remainingTime = (totalTime - elapsed) * 1000;
+                            if (remainingTime > 0) {
+                                setTimeout(() => {
+                                    updateTimer(); // Final exact time update
+                                    finishGeneration();
+                                }, remainingTime);
+                            } else {
+                                 updateTimer(); // Update time one last time
+                                finishGeneration();
+                            }
+                        }
+                    }, intervalTime);
+                }
+
+
+                // Update timer display
+                function updateTimer() {
+                    const elapsed = (Date.now() - startTime) / 1000;
+                    timerElement.textContent = `Time: ${elapsed.toFixed(2)}s`;
+                    return elapsed;
+                }
+
+                function finishGeneration(errorOccurred = false) {
+                    // Update the message text only if no error occurred during loading
+                    if (!errorOccurred && generatingText) {
+                        const genTime = parseFloat(timerElement.textContent.replace('Time: ', '').replace('s',''));
+                        generatingText.textContent = `Generated in ${genTime.toFixed(1)}s`; // Simplified message
+                    } else if (generatingText) {
+                         generatingText.textContent = `Error loading image`; // Indicate error
+                    }
+
+
+                    // Increment the image counter for the next generation only on success
+                    if(!errorOccurred) {
+                        imageCount++;
+                    }
+
+                    // Allow sending again
+                    isGenerating = false;
+                    sendBtn.disabled = false;
+                     // Scroll to bottom again in case content size changed
+                    chatArea.scrollTo({ top: chatArea.scrollHeight, behavior: 'smooth' });
+                }
+            }
+
+            // Set up event listeners
+            sendBtn.addEventListener('click', sendMessage);
+
+            // Allow sending with Enter key (Shift+Enter for new line)
+            promptInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
         });
-
-        textGeometry.center();
-
-        const textMaterial = new THREE.MeshStandardMaterial({ color: 0x00ffcc });
-        const textMesh = new THREE.Mesh(textGeometry, textMaterial);
-        textMesh.position.set(5, -0.5, 0.1); // Opposite side of logo
-        scene.add(textMesh);
-      });
-
-      // Resize handler
-      window.addEventListener('resize', () => {
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
-      });
-
-      // Render loop
-      function animate() {
-        requestAnimationFrame(animate);
-        controls.update();
-        renderer.render(scene, camera);
-      }
-
-      animate();
     </script>
-  </body>
+</body>
 </html>
